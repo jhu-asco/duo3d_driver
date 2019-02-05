@@ -19,6 +19,7 @@
 ///////////////////////////////////////////////////////////////////////////
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+#include <stereo_msgs/DisparityImage.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/distortion_models.h>
@@ -49,7 +50,7 @@ namespace duo3d_driver
 enum { LEFT, RIGHT, RGB, DEPTH, POINT_CLOUD, IMU, TEMP, ITEM_COUNT };
 const vector<string> prefix =
 {
-    "left", "right", "rgb", "depth", "point_cloud", "imu", "temperature"
+    "left", "right", "rgb", "disparity", "point_cloud", "imu", "temperature"
 };
 
 // parameter names
@@ -142,6 +143,7 @@ class DUO3DDriver
     ros::Publisher _pub_imu;
     // Temperature publisher
     ros::Publisher _pub_temperature;
+    ros::Publisher _pub_depth;
 
     // Gyroscope offset calibration
     int _num_samples;
@@ -171,6 +173,8 @@ public:
                 _pub_imu = _nh.advertise<sensor_msgs::Imu>(topic_name[i], 100);
             else if(i == TEMP)
                 _pub_temperature = _nh.advertise<sensor_msgs::Temperature>(topic_name[i], 100);
+            else if(i == DEPTH)
+                _pub_depth = _nh.advertise<stereo_msgs::DisparityImage>(topic_name[i], 100);
             else
                 _pub_image[i] = itrans.advertise(topic_name[i], 16);
         }
@@ -307,13 +311,13 @@ protected:
             header.stamp = ros::Time(_start_time + (double)pFrame->duoFrame->timeStamp / 10000.0);
             header.frame_id = frame_id_name[i];
 
-            if((i == LEFT) && (_pub_image[i].getNumSubscribers() > 0))
+            if((i == LEFT) )
             {
                 _pub_image[i].publish(cv_bridge::CvImage(header, sensor_msgs::image_encodings::MONO8, left).toImageMsg());
                 _msg_cam_info[i].header = header;
                 _pub_cam_info[i].publish(_msg_cam_info[i]);
             }
-            if((i == RIGHT) && (_pub_image[i].getNumSubscribers() > 0))
+            if((i == RIGHT) )
             {
                 _pub_image[i].publish(cv_bridge::CvImage(header, sensor_msgs::image_encodings::MONO8, right).toImageMsg());
                 _msg_cam_info[i].header = header;
@@ -342,12 +346,21 @@ protected:
             }
             if((i == DEPTH) && pFrame->dense3dDataValid)
             {
+                /*
                 Mat disp8;
                 Mat(size, CV_32FC1, pFrame->disparityData).convertTo(disp8, CV_8UC1, 255.0/(pFrame->dense3dParams.numDisparities*16.0));
                 Mat rgbDepth;
                 cvtColor(disp8, rgbDepth, cv::COLOR_GRAY2BGR);
                 LUT(rgbDepth, _colorLut, rgbDepth);
                 _pub_image[i].publish(cv_bridge::CvImage(header, sensor_msgs::image_encodings::RGB8, rgbDepth).toImageMsg());
+                _msg_cam_info[i].header = header;
+                _pub_cam_info[i].publish(_msg_cam_info[i]);
+                */
+                Mat disparity(size, CV_32FC1, pFrame->disparityData);
+                stereo_msgs::DisparityImage disp_image;
+                disp_image.header = header;
+                disp_image.image = *cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_32FC1, disparity).toImageMsg();
+                _pub_depth.publish(disp_image);
                 _msg_cam_info[i].header = header;
                 _pub_cam_info[i].publish(_msg_cam_info[i]);
             }
