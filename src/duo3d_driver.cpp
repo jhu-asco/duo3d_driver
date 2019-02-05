@@ -291,8 +291,8 @@ protected:
 
     void dense3dCallback(const PDense3DFrame pFrame)
     {
-        bool needDense3d = (_pub_image[DEPTH].getNumSubscribers() > 0) ||
-                           (_pub_point_cloud.getNumSubscribers() > 0);
+        bool needDense3d = true;//(_pub_image[DEPTH].getNumSubscribers() > 0) ||
+                           //(_pub_point_cloud.getNumSubscribers() > 0);
         // Enable Dense3d processing
         SetDense3DProcessing(_dense3dInstance, needDense3d);
 
